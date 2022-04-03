@@ -1,0 +1,4 @@
+Redis:
+  Addr: resyon.io:6379
+  DB: 0
+  Password:
