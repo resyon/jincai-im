@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	roomMemberKeyPrefix = "room_member_"
-	roomCollectionKey   = "room_collection"
+	roomMemberKeyPrefix   = "room_member_"
+	roomCollectionKey     = "room_collection"
+	roomNameCollectionKey = "room_name_collection"
 )
 
 type RoomCache struct {
@@ -15,8 +16,18 @@ type RoomCache struct {
 
 func (RoomCache) AddRoomToSet(roomName string) (uid string, err error) {
 	uid = common.GetUUID()
+	err = GetRedis().HSet(context.TODO(), roomNameCollectionKey, roomName, uid).Err()
 	err = GetRedis().HSet(context.TODO(), roomCollectionKey, uid, roomName).Err()
 	return
+}
+
+func (RoomCache) SelectRoomIdByName(roomName string) (uid string, err error) {
+	if ok, err := GetRedis().HExists(context.TODO(), roomNameCollectionKey, roomName).Result(); !ok {
+		return "", common.RoomNotExistError
+	} else if err != nil {
+		return "", err
+	}
+	return GetRedis().HGet(context.TODO(), roomNameCollectionKey, roomName).Result()
 }
 
 func (r RoomCache) AddUserToRoom(userId int, roomId string) error {

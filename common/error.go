@@ -1,5 +1,7 @@
 package common
 
+import "errors"
+
 var (
-	RoomNotExistError error
+	RoomNotExistError error = errors.New("room not exist")
 )

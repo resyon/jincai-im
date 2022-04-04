@@ -1,8 +1,10 @@
-package cache
+package core
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-redis/redis/v8"
+	"github.com/resyon/jincai-im/cache"
 	"github.com/resyon/jincai-im/common"
 	"github.com/resyon/jincai-im/model"
 	"log"
@@ -18,8 +20,8 @@ type backUp struct {
 }
 
 func newBakeUp() *backUp {
-	client := NewRedisClient()
-	_, pubSub, err := common.SubUtilReady(client, "__can__not__exist_dummy")
+	client := cache.NewRedisClient()
+	_, pubSub, err := common.SubUtilReady(client, SysChannel)
 	if err != nil {
 		panic(err)
 	}
@@ -39,10 +41,16 @@ func (b *backUp) Subscribe(channel string) error {
 func (b *backUp) backupD() {
 	for v := range b.pubSub.Channel() {
 		//TODO: persist message
-		log.Printf("%#v\n", v)
+		log.Printf("[IN BACKUP] %#v\n", v)
 	}
 }
 
 func (b *backUp) Notify(message *model.Message, channel string) {
 
+	//TODO: handle the error
+	err := b.client.Publish(context.TODO(), channel, message).Err()
+	if err != nil {
+		fmt.Printf("[Backup] notify: publish, err=%s\n", err)
+		return
+	}
 }

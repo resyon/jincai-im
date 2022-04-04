@@ -65,17 +65,14 @@ func EnableAuth(r *gin.Engine) *gin.RouterGroup {
 				if err := _userService.Register(userName, password); err != nil {
 					return nil, jwt.ErrFailedAuthentication
 				}
-
+				// select user_id
+				user, _ = _userService.Login(userName, password)
 			}
 			c.Set(common.UserIdKey, user.Id)
 			return user, nil
 		},
 		Authorizator: func(data interface{}, c *gin.Context) bool {
-			if v, ok := data.(*model.User); ok && v.Id != 0 {
-				return true
-			}
-
-			return false
+			return true
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
 			c.JSON(code, gin.H{

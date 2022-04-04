@@ -56,4 +56,3 @@ func SubUtilReady(client *redis.Client, channel string) (firstMsg *redis.Message
 	}
 	return
 }
-

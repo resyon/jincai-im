@@ -8,24 +8,9 @@ import (
 )
 
 var (
-	once      sync.Once
-	_conn     *redis.Conn
-	RedisPool = &redisPool{userMap: &sync.Map{}}
+	once  sync.Once
+	_conn *redis.Conn
 )
-
-type redisPool struct {
-	userMap *sync.Map
-}
-
-func (p *redisPool) GetRedisConnection(userId int) *redis.Client {
-	_c, ok := p.userMap.Load(userId)
-	if !ok {
-		c := NewRedisClient()
-		p.userMap.Store(userId, _c)
-		return c
-	}
-	return _c.(*redis.Client)
-}
 
 func GetRedis() *redis.Conn {
 	once.Do(func() {
