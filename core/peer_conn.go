@@ -94,20 +94,25 @@ func (p *PeerConn) InitSub() (serveFunc func()) {
 
 	return func() {
 
-		select {
+		for {
 
-		// read
-		case msg := <-ch:
-			p.ConsumeMessage(msg)
+			select {
 
-		// write
-		case msg := <-p.rcvChan:
-			p.PublishMessage(msg)
+			// read
+			case msg := <-ch:
+				p.ConsumeMessage(msg)
 
-		// cancel
-		case <-p.ctx.Done():
-			fmt.Printf("peer for user<%d> has draw out\n", p.userId)
-			return
+			// write
+			case msg := <-p.rcvChan:
+				p.PublishMessage(msg)
+
+			// cancel
+			case <-p.ctx.Done():
+				fmt.Printf("peer for user<%d> has draw out\n", p.userId)
+				return
+			}
+
 		}
+
 	}
 }
