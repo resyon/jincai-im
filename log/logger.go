@@ -10,6 +10,8 @@ var (
 )
 
 func getLogger() *zap.SugaredLogger {
+
+	// TODO: make it configurable
 	config := zap.NewDevelopmentConfig()
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	logger, err := config.Build()

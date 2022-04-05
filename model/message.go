@@ -14,8 +14,8 @@ const (
 )
 
 type Message struct {
-	Time        int64  `json:"time"`
-	UserId      int64  `json:"user_id"`
+	Time        int64  `json:"time" gorm:"column:time"`
+	UserId      int64  `json:"user_id" gorm:"column:user_id"`
 	RoomId      string `json:"room_id"` // 64B
 	MessageType uint8  `json:"message_type"`
 	Text        string `json:"text"`
