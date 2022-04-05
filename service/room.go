@@ -5,6 +5,7 @@ import (
 	"github.com/resyon/jincai-im/cache"
 	"github.com/resyon/jincai-im/common"
 	"github.com/resyon/jincai-im/core"
+	"github.com/resyon/jincai-im/log"
 	"github.com/resyon/jincai-im/model"
 )
 
@@ -36,7 +37,6 @@ func (RoomService) CreateRoom(userId int, roomName string) (*model.Room, error) 
 		RoomId:   roomId,
 		OwnerId:  userId,
 	}
-	core.GetRoomPool().AddRoom(room)
 
 	return room, err
 }
@@ -51,6 +51,7 @@ func (RoomService) JoinRoom(userId int, roomId string) error {
 
 	// notify a user join
 	msg := fmt.Sprintf("%d has joined the room %s", userId, roomId)
+	log.LOG.Info(msg)
 	core.BackUp.Notify(model.NewNotifyMessage(msg, roomId), roomId)
 	return err
 }

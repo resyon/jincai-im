@@ -34,7 +34,7 @@ func GetUserIdFromContext(c *gin.Context) int {
 
 func SubUtilReady(client *redis.Client, channel string) (firstMsg *redis.Message, sub *redis.PubSub, err error) {
 	sub = client.Subscribe(context.TODO(), channel)
-	iface, err := sub.Receive(context.TODO())
+	iFace, err := sub.Receive(context.TODO())
 	if err != nil {
 		// handle error
 		return nil, nil, err
@@ -42,7 +42,7 @@ func SubUtilReady(client *redis.Client, channel string) (firstMsg *redis.Message
 
 	// Should be *Subscription, but others are possible if other actions have been
 	// taken on sub since it was created.
-	switch v := iface.(type) {
+	switch v := iFace.(type) {
 	case *redis.Subscription:
 		// subscribe succeeded
 	case *redis.Message:

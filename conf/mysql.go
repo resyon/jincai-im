@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"github.com/resyon/jincai-im/log"
 	"github.com/spf13/viper"
 	"sync"
 )
@@ -34,17 +35,17 @@ type MysqlConf struct {
 
 func GetMysqlDSN() string {
 	mysqlOnce.Do(func() {
-		viper.SetConfigType(redisConfType)
+		viper.SetConfigType(confType)
 		viper.SetConfigName(mysqlConfName)
-		viper.AddConfigPath(redisConfPath)
+		viper.AddConfigPath(confPath)
 		viper.AddConfigPath(".")
 		if err := viper.ReadInConfig(); err != nil {
-			panic(err)
+			log.LOG.Panicf("fail to get mysql conf, err=%+v", err)
 		}
 		err := viper.Unmarshal(&_mysqlConf)
 		if err != nil {
 			//#user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-			panic(err)
+			log.LOG.Panicf("fail to parse mysql conf, err=%+v", err)
 		}
 		_dsn = fmt.Sprintf(mysqlDsnFmt, _mysqlConf.Username,
 			_mysqlConf.Password, _mysqlConf.Host, _mysqlConf.Port, _mysqlConf.DBName)

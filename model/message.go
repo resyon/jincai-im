@@ -26,10 +26,12 @@ func (_ Message) TableName() string {
 }
 
 func (m Message) String() string {
+	//TODO: better to_string
 	return fmt.Sprintf("%d,%d,%s,%d,%s", m.Time, m.UserId, m.RoomId, m.MessageType, m.Text)
 }
 
 func (m Message) MarshalBinary() ([]byte, error) {
+	//TODO: better marshal binary
 	return []byte(m.String()), nil
 }
 

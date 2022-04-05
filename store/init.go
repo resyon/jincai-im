@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/resyon/jincai-im/conf"
+	"github.com/resyon/jincai-im/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"sync"
@@ -18,7 +19,7 @@ func GetDB() *gorm.DB {
 		var err error
 		_db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
-			panic(err)
+			log.LOG.Panicf("fail to get mysql connection, Err=%+v", err)
 		}
 	})
 	return _db

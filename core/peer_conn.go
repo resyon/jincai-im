@@ -2,23 +2,24 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/resyon/jincai-im/cache"
+	"github.com/resyon/jincai-im/log"
 	"github.com/resyon/jincai-im/model"
 	"io"
 )
 
 type PeerConn struct {
-	userId   int
-	Client   *redis.Client
-	PubSub   *redis.PubSub
-	pubReady chan struct{}
-	conn     *websocket.Conn
-	ctx      context.Context
-	cancel   context.CancelFunc
-	rcvChan  chan *model.Message
+	userId    int
+	Client    *redis.Client
+	PubSub    *redis.PubSub
+	pubReady  chan struct{}
+	conn      *websocket.Conn
+	ctx       context.Context
+	cancel    context.CancelFunc
+	rcvChan   chan *model.Message
+	subTopics []string
 }
 
 func NewPeerCoon(userId int, ws *websocket.Conn) *PeerConn {
@@ -32,8 +33,9 @@ func NewPeerCoon(userId int, ws *websocket.Conn) *PeerConn {
 		pubReady: make(chan struct{}, 1),
 		Client:   cache.NewRedisClient(),
 	}
+	// TODO: close handler
 	ws.SetCloseHandler(func(code int, text string) error {
-		fmt.Printf("[WS CLOSE] code=%d, text=%s\n", code, text)
+		log.LOG.Infof("[WS CLOSE] code=%d, text=%s\n", code, text)
 		return PeerPool.DestroyPeer(userId)
 	})
 	return ret
@@ -42,19 +44,19 @@ func NewPeerCoon(userId int, ws *websocket.Conn) *PeerConn {
 func (p *PeerConn) ConsumeMessage(msg *redis.Message) {
 	// TODO: implements
 	content := model.NewMessage(msg.Payload)
-	fmt.Printf("[PeerConn] read user<%d>: %#v\n", p.userId, content)
+	log.LOG.Debugf("[PeerConn] read user<%d>: %#v\n", p.userId, content)
 
 	err := p.conn.WriteMessage(websocket.TextMessage, []byte(content.String()))
 	if err != nil {
-		fmt.Printf("[PeerConn] read user<%d>: %#v\n Err=%#v\n", p.userId, content, err)
+		log.LOG.Debugf("[PeerConn] read user<%d>: %#v\n Err=%#v\n", p.userId, content, err)
 	}
 }
 
 func (p *PeerConn) PublishMessage(msg *model.Message) {
-	fmt.Printf("[PeerConn] send user<%d>: %#v\n", p.userId, msg)
+	log.LOG.Debugf("[PeerConn] send user<%d>: %#v\n", p.userId, msg)
 	err := p.Client.Publish(p.ctx, msg.RoomId, msg).Err()
 	if err != nil {
-		fmt.Printf("[PeerConn] send user<%d>: %#v\n Err=%+v\n", p.userId, msg, err)
+		log.LOG.Debugf("[PeerConn] send user<%d>: %#v\n Err=%+v\n", p.userId, msg, err)
 	}
 }
 
@@ -72,23 +74,39 @@ func (p *PeerConn) InitSub() (serveFunc func()) {
 	go func() {
 		for {
 			msgType, data, err := p.conn.ReadMessage()
-			//fmt.Printf("[PeerConn], type: %d, rcv: %#v\n", msgType, data)
+			log.LOG.Debugf("[PeerConn], type: %d, rcv: %#v\n", msgType, data)
+
 			if err != nil {
+				log.LOG.Errorf("Rcv from ws: err=%#v\n", err)
 				if err == io.EOF {
 					// ignore
 					continue
 				}
-				fmt.Printf("Rcv from ws: err=%#v\n", err)
+
+				//TODO: store message when client down
+				//if msgType == websocket.CloseMessage {
+				err := PeerPool.DestroyPeer(p.userId)
+				if err != nil {
+					log.LOG.Errorf("fail to destory peer, Err=%+v", err)
+				}
+				//	return
+				//}
 				return
 			}
-			if msgType != websocket.TextMessage {
-				fmt.Printf("Rcv from ws: msgType=%d data=%#v\n", msgType, data)
+			// TODO: consume ping message
+			if msgType == websocket.PingMessage {
 				continue
 			}
+			if msgType != websocket.TextMessage {
+				log.LOG.Errorf("Rcv from ws: msgType=%d data=%#v\n", msgType, data)
+			}
 
-			payload := model.NewMessage(string(data))
-			payload.MessageType = model.COMMON_MSG_TYPE
-			p.rcvChan <- &payload
+			if msgType == websocket.TextMessage {
+				payload := model.NewMessage(string(data))
+				payload.UserId = int64(p.userId)
+				payload.MessageType = model.COMMON_MSG_TYPE
+				p.rcvChan <- &payload
+			}
 		}
 	}()
 
@@ -108,7 +126,7 @@ func (p *PeerConn) InitSub() (serveFunc func()) {
 
 			// cancel
 			case <-p.ctx.Done():
-				fmt.Printf("peer for user<%d> has draw out\n", p.userId)
+				log.LOG.Infof("peer for user<%d> has draw out\n", p.userId)
 				return
 			}
 

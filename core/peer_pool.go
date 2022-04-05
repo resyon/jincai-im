@@ -6,6 +6,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/resyon/jincai-im/common"
+	"github.com/resyon/jincai-im/log"
+	"github.com/resyon/jincai-im/model"
 	"sync"
 )
 
@@ -100,7 +102,8 @@ func (p *peerPool) UnSubscribe(userId int, channel string) error {
 }
 
 func (p *peerPool) DestroyPeer(userId int) error {
-	fmt.Println("PeerPool#DestroyPeer Called")
+	//TODO: peer collection
+	log.LOG.Info("PeerPool#DestroyPeer Called")
 	p.mutex.Lock()
 	conn, ok := p.peerMap[userId]
 	if !ok {
@@ -110,5 +113,11 @@ func (p *peerPool) DestroyPeer(userId int) error {
 	delete(p.peerMap, userId)
 	p.mutex.Unlock()
 	conn.cancel()
+	msg := fmt.Sprintf("%d in room<%s> has downline", conn.userId, SysChannel)
+	BackUp.Notify(model.NewNotifyMessage(msg, SysChannel), SysChannel)
+	err := conn.PubSub.Close()
+	if err != nil {
+		return err
+	}
 	return conn.Client.Close()
 }

@@ -2,9 +2,10 @@ package middleware
 
 import (
 	"github.com/resyon/jincai-im/common"
+	"github.com/resyon/jincai-im/conf"
+	"github.com/resyon/jincai-im/log"
 	"github.com/resyon/jincai-im/model"
 	"github.com/resyon/jincai-im/service"
-	"log"
 	"time"
 
 	jwt "github.com/appleboy/gin-jwt/v2"
@@ -18,7 +19,6 @@ type login struct {
 
 const (
 	identityKey = "id"
-	authKey     = "this_is_a_auth_key7^832(F:"
 )
 
 var (
@@ -32,7 +32,7 @@ func EnableAuth(r *gin.Engine) *gin.RouterGroup {
 	// the jwt middleware
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:       "test zone",
-		Key:         []byte(authKey),
+		Key:         []byte(conf.GetAppConf().JWT.AuthKey),
 		Timeout:     time.Hour,
 		MaxRefresh:  time.Hour,
 		IdentityKey: identityKey,
@@ -100,7 +100,7 @@ func EnableAuth(r *gin.Engine) *gin.RouterGroup {
 	})
 
 	if err != nil {
-		log.Fatal("JWT Error:" + err.Error())
+		log.LOG.Fatal("JWT Error:" + err.Error())
 	}
 
 	// When you use jwt.New(), the function is already automatically called for checking,
@@ -108,14 +108,14 @@ func EnableAuth(r *gin.Engine) *gin.RouterGroup {
 	errInit := authMiddleware.MiddlewareInit()
 
 	if errInit != nil {
-		log.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
+		log.LOG.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
 	}
 
 	r.POST("/login", authMiddleware.LoginHandler)
 
 	r.NoRoute(authMiddleware.MiddlewareFunc(), func(c *gin.Context) {
 		claims := jwt.ExtractClaims(c)
-		log.Printf("NoRoute claims: %#v\n", claims)
+		log.LOG.Infof("NoRoute claims: %#v\n", claims)
 		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
 	})
 

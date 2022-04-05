@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/resyon/jincai-im/conf"
 	"github.com/resyon/jincai-im/controller"
+	"github.com/resyon/jincai-im/log"
 	"github.com/resyon/jincai-im/middleware"
 )
 
@@ -16,8 +19,8 @@ func main() {
 	auth.POST("/room", room.CreateRoom)
 	auth.GET("/ws", room.ServeWS)
 
-	err := e.Run(":9999")
+	err := e.Run(fmt.Sprintf(":%d", conf.GetAppConf().Port))
 	if err != nil {
-		panic(err)
+		log.LOG.Panicf("fail to start serve, Err=%+v", err)
 	}
 }

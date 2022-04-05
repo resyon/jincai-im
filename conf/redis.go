@@ -2,13 +2,15 @@ package conf
 
 import (
 	"github.com/go-redis/redis/v8"
+	"github.com/resyon/jincai-im/log"
 	"github.com/spf13/viper"
 	"sync"
 )
 
-const redisConfType = "yaml"
+const confType = "yaml"
+const confPath = ".."
+
 const redisConfName = "redis"
-const redisConfPath = ".."
 
 var (
 	_redisConf RedisConf
@@ -24,16 +26,16 @@ type RedisConf struct {
 
 func GetRedisConf() RedisConf {
 	once.Do(func() {
-		viper.SetConfigType(redisConfType)
+		viper.SetConfigType(confType)
 		viper.SetConfigName(redisConfName)
-		viper.AddConfigPath(redisConfPath)
+		viper.AddConfigPath(confPath)
 		viper.AddConfigPath(".")
 		if err := viper.ReadInConfig(); err != nil {
-			panic(err)
+			log.LOG.Panicf("Fail to read redis_conf, err=%+v\n", err)
 		}
 		err := viper.Unmarshal(&_redisConf)
 		if err != nil {
-			panic(err)
+			log.LOG.Panicf("Fail to parse redis_conf, err=%+v\n", err)
 		}
 	})
 	return _redisConf
