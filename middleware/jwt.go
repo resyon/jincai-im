@@ -33,7 +33,7 @@ func EnableAuth(r *gin.Engine) *gin.RouterGroup {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:       "test zone",
 		Key:         []byte(conf.GetAppConf().JWT.AuthKey),
-		Timeout:     time.Hour,
+		Timeout:     96 * time.Hour,
 		MaxRefresh:  time.Hour,
 		IdentityKey: identityKey,
 		PayloadFunc: func(data interface{}) jwt.MapClaims {

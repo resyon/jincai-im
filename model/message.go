@@ -1,68 +1,71 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
+	"github.com/resyon/jincai-im/common"
+	"github.com/resyon/jincai-im/log"
 	"time"
 )
 
 const (
-	MENTAIN_MSG_TYPE = iota
-	COMMON_MSG_TYPE
-	HEARTBEAT_MSG_TYPE
+	MaintainMsgType = iota
+	CommonMsgType
+	HeartbeatMsgType
+	AckMsgType
 )
 
 type Message struct {
+	Id          int64  `json:"id" gorm:"column:id"`
 	Time        int64  `json:"time" gorm:"column:time"`
-	UserId      int64  `json:"user_id" gorm:"column:user_id"`
-	RoomId      string `json:"room_id"` // 64B
-	MessageType uint8  `json:"message_type"`
-	Text        string `json:"text"`
+	UserId      int    `json:"user_id" gorm:"column:user_id"`
+	RoomId      string `json:"room_id" gorm:"column:room_id"` // 64B
+	MessageType uint8  `json:"message_type" gorm:"message_type"`
+	HasRead     bool   `json:"had_read" gorm:"column:has_read"`
+	HasSend     bool   `json:"has_send" gorm:"column:has_send"`
+	Text        string `json:"text" gorm:"column:text"`
 }
 
 func (_ Message) TableName() string {
 	return "message"
 }
 
+func NewMessage(userId int, roomId string, msgType uint8, text string) Message {
+	return Message{
+		Id:          common.GenerateID(),
+		Time:        time.Now().UnixNano(),
+		UserId:      userId,
+		RoomId:      roomId,
+		MessageType: msgType,
+		Text:        text,
+	}
+}
+
 func (m Message) String() string {
 	//TODO: better to_string
-	return fmt.Sprintf("%d,%d,%s,%d,%s", m.Time, m.UserId, m.RoomId, m.MessageType, m.Text)
+	return fmt.Sprintf("%#v", m)
 }
 
 func (m Message) MarshalBinary() ([]byte, error) {
 	//TODO: better marshal binary
-	return []byte(m.String()), nil
+	marshal, err := json.Marshal(m)
+	if err != nil {
+		log.LOG.Panic(err)
+		return nil, err
+	}
+	return marshal, nil
 }
 
-func NewMessage(raw string) Message {
-	raws := strings.Split(raw, ",")
-	parseInt := func(s string) int64 {
-		r, _ := strconv.Atoi(s)
-		return int64(r)
+func ParseMessage(raw []byte) (Message, error) {
+	var ret Message
+	err := json.Unmarshal(raw, &ret)
+	if err != nil {
+		log.LOG.Errorf("fail to parse message, Err=%+v", err)
 	}
-	msgTime := parseInt(raws[0])
-	userId := parseInt(raws[1])
-	roomId := raws[2]
-	messageType := uint8(parseInt(raws[3]))
-	text := raws[4]
-	return Message{
-		Time:        msgTime,
-		UserId:      userId,
-		RoomId:      roomId,
-		MessageType: messageType,
-		Text:        text,
-	}
-
+	return ret, err
 }
 
 func NewNotifyMessage(text string, targetRoom string) *Message {
-	msg := Message{
-		Time:        time.Now().UnixNano(),
-		Text:        text,
-		UserId:      0, // system notify
-		RoomId:      targetRoom,
-		MessageType: MENTAIN_MSG_TYPE,
-	}
+	msg := NewMessage(0, targetRoom, MaintainMsgType, text)
 	return &msg
 }

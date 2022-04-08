@@ -1,18 +1,19 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/resyon/jincai-im/common"
-	"github.com/resyon/jincai-im/core"
 	"github.com/resyon/jincai-im/log"
 	"github.com/resyon/jincai-im/service"
 	"net/http"
 )
 
 var (
-	_roomService = &service.RoomService{}
-	upgrader     = &websocket.Upgrader{
+	_roomService     = &service.RoomService{}
+	_roomMateService = &service.RoomMateService{}
+	upgrader         = &websocket.Upgrader{
 		CheckOrigin: func(_ *http.Request) bool {
 			return true
 		},
@@ -73,11 +74,44 @@ func (RoomCtrl) ServeWS(c *gin.Context) {
 		return
 	}
 
-	server, err := core.PeerPool.AddPeerAndServe(userId, conn)
+	server, err := service.PeerPool.AddPeerAndServe(userId, conn)
 	if err != nil {
 		log.LOG.Errorf("fail to add peer, Err=%+v\n", err)
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// resume subscribe.
+	room, err := _roomMateService.GetJoinedRoom(userId)
+	if err != nil {
+		msg := fmt.Sprintf("fail to join room, can not get joined room, Err=%+v", err)
+		log.LOG.Error(msg)
+		c.JSON(http.StatusInternalServerError, msg)
+		return
+	}
+
+	go func() {
+		for _, r := range room {
+			err := service.PeerPool.SubscribeChannel(userId, r)
+			if err != nil {
+				msg := fmt.Sprintf("fail to join room, can not sub, Err=%+v", err)
+				log.LOG.Error(msg)
+				c.JSON(http.StatusInternalServerError, msg)
+				return
+			}
+		}
+	}()
+
 	server()
+}
+
+func (RoomCtrl) GetAllRoom(c *gin.Context) {
+	room, err := _roomService.GetAllRoom()
+	if err != nil {
+		msg := fmt.Sprintf("Fail to get room info, Err=%+v", err)
+		log.LOG.Error(msg)
+		c.JSON(http.StatusInternalServerError, msg)
+		return
+	}
+	c.JSON(http.StatusOK, room)
 }

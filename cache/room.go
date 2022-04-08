@@ -3,31 +3,20 @@ package cache
 import (
 	"context"
 	"github.com/resyon/jincai-im/common"
+	"github.com/resyon/jincai-im/model"
 )
 
 const (
-	roomMemberKeyPrefix   = "room_member_"
-	roomCollectionKey     = "room_collection"
-	roomNameCollectionKey = "room_name_collection"
+	roomMemberKeyPrefix = "room_member_"
+	roomCollectionKey   = "room_collection"
 )
 
 type RoomCache struct {
 }
 
-func (RoomCache) AddRoomToSet(roomName string) (uid string, err error) {
-	uid = common.GetUUID()
-	err = GetRedis().HSet(context.TODO(), roomNameCollectionKey, roomName, uid).Err()
-	err = GetRedis().HSet(context.TODO(), roomCollectionKey, uid, roomName).Err()
+func (RoomCache) AddRoomToSet(room *model.Room) (err error) {
+	err = GetRedis().HSet(context.TODO(), roomCollectionKey, room.RoomId, room.RoomName).Err()
 	return
-}
-
-func (RoomCache) SelectRoomIdByName(roomName string) (uid string, err error) {
-	if ok, err := GetRedis().HExists(context.TODO(), roomNameCollectionKey, roomName).Result(); !ok {
-		return "", common.RoomNotExistError
-	} else if err != nil {
-		return "", err
-	}
-	return GetRedis().HGet(context.TODO(), roomNameCollectionKey, roomName).Result()
 }
 
 func (r RoomCache) AddUserToRoom(userId int, roomId string) error {
@@ -59,4 +48,18 @@ func (RoomCache) checkRoomExist(roomId string) error {
 
 func getRoomMemberKey(roomId string) string {
 	return roomMemberKeyPrefix + roomId
+}
+
+func (r *RoomCache) GetAllRoomInfo() ([]*model.Room, error) {
+	result, err := GetRedis().HGetAll(context.TODO(), roomCollectionKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*model.Room, len(result))
+	i := 0
+	for k, v := range result {
+		ret[i] = &model.Room{RoomId: k, RoomName: v}
+		i++
+	}
+	return ret, nil
 }

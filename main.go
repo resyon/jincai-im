@@ -11,13 +11,20 @@ import (
 
 func main() {
 	e := gin.Default()
-	room := &controller.RoomCtrl{}
 
 	auth := middleware.EnableAuth(e)
 
+	room := &controller.RoomCtrl{}
 	auth.PATCH("/room", room.JoinRoom)
 	auth.POST("/room", room.CreateRoom)
+	auth.GET("/room", room.GetAllRoom)
 	auth.GET("/ws", room.ServeWS)
+
+	msg := &controller.MessageCtrl{}
+	auth.GET("/message", msg.GetHistory)
+
+	roomMate := &controller.RoomMateCtrl{}
+	auth.GET("/room_mate", roomMate.GetRoomMate)
 
 	err := e.Run(fmt.Sprintf(":%d", conf.GetAppConf().Port))
 	if err != nil {

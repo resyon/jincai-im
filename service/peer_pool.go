@@ -1,13 +1,9 @@
-package core
+package service
 
 import (
-	"context"
-	"fmt"
-	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/resyon/jincai-im/common"
 	"github.com/resyon/jincai-im/log"
-	"github.com/resyon/jincai-im/model"
 	"sync"
 )
 
@@ -34,38 +30,16 @@ func (p *peerPool) AddPeerAndServe(userId int, ws *websocket.Conn) (func(), erro
 		}
 		p.mutex.Lock()
 	}
-	conn = NewPeerCoon(userId, ws)
+	conn = NewPeerCoonNoWait(userId, ws)
 	p.peerMap[userId] = conn
 	p.mutex.Unlock()
 
-	sub := conn.Client.Subscribe(context.TODO(), SysChannel)
-	iFace, err := sub.Receive(context.TODO())
+	err := conn.ReadyForSubscribe()
+
 	if err != nil {
-		// handle error
 		goto Err
 	}
-
-	// Should be *Subscription, but others are possible if other actions have been
-	// taken on sub since it was created.
-	switch v := iFace.(type) {
-	case *redis.Subscription:
-		// subscribe succeeded
-		// ignore
-	case *redis.Message:
-		// received first message
-		conn.ConsumeMessage(v)
-
-	case *redis.Pong:
-		// pong received
-		// ignore
-	default:
-		// handle error
-		goto Err
-	}
-
-	conn.PubSub = sub
-	conn.SubPubReady()
-	return conn.InitSub(), nil
+	return conn.InitAndGetServer(), nil
 
 Err:
 	p.mutex.Lock()
@@ -76,29 +50,26 @@ Err:
 }
 
 func (p *peerPool) SubscribeChannel(userId int, channel string) error {
-	p.mutex.Lock()
+	p.mutex.RLock()
 	conn, ok := p.peerMap[userId]
 	if !ok {
-		p.mutex.Unlock()
+		p.mutex.RUnlock()
 		return common.RoomNotExistError
 	}
-	p.mutex.Unlock()
-	if conn.PubSub == nil {
-		conn.AwaitSubReady()
-	}
+	p.mutex.RUnlock()
 
-	return conn.PubSub.Subscribe(conn.ctx, channel)
+	return conn.Subscribe(conn.ctx, channel)
 }
 
 func (p *peerPool) UnSubscribe(userId int, channel string) error {
-	p.mutex.Lock()
+	p.mutex.RLock()
 	conn, ok := p.peerMap[userId]
 	if !ok {
-		p.mutex.Unlock()
+		p.mutex.RUnlock()
 		return common.RoomNotExistError
 	}
-	p.mutex.Unlock()
-	return conn.PubSub.Unsubscribe(conn.ctx, channel)
+	p.mutex.RUnlock()
+	return conn.Unsubscribe(conn.ctx, channel)
 }
 
 func (p *peerPool) DestroyPeer(userId int) error {
@@ -112,12 +83,5 @@ func (p *peerPool) DestroyPeer(userId int) error {
 	}
 	delete(p.peerMap, userId)
 	p.mutex.Unlock()
-	conn.cancel()
-	msg := fmt.Sprintf("%d in room<%s> has downline", conn.userId, SysChannel)
-	BackUp.Notify(model.NewNotifyMessage(msg, SysChannel), SysChannel)
-	err := conn.PubSub.Close()
-	if err != nil {
-		return err
-	}
-	return conn.Client.Close()
+	return conn.Destroy()
 }
